@@ -2,6 +2,7 @@ import numpy as np
 import faiss
 from openai import OpenAI
 import numpy as np
+import sqlite3
 
 client = OpenAI(
     api_key="sk-",
@@ -9,6 +10,8 @@ client = OpenAI(
 )
 
 faiss_read_index = faiss.read_index('data/faiss.index')
+conn = sqlite3.connect('data/text.db')
+c = conn.cursor()
 
 def answer(user_input):
     response = client.embeddings.create(
@@ -21,13 +24,12 @@ def answer(user_input):
     distances, indices = faiss_read_index.search(np.array([query_vector]).astype('float32'), k=2)
     # print(f"Indices of nearest neighbors: {indices}")
     # print(f"Distances: {distances}")
-    lines = []
     context = []
-    with open('./data./knowledge/运动鞋店铺知识库.txt', 'r', encoding='utf-8') as f:
-        lines = f.readlines()
     for index in indices[0]:
         # print(f"Index: {index}, Content: {lines[index]}")
-        context.append(lines[index])
+        cursor = c.execute("SELECT * FROM ai_context WHERE id = "+str(index))
+        for row in cursor:
+            context.append(row[1])
 
     completion = client.chat.completions.create(
             model="Qwen/Qwen2.5-7B-Instruct",
@@ -42,9 +44,6 @@ def answer(user_input):
 
     for chunk in completion:
         print(chunk.choices[0].delta.content, end="", flush=True)
-
-
-user_input = "有什么颜色？"
 
 while True:
     answer(input("\nUser: "))
